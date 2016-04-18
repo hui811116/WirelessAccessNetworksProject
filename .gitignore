@@ -1,0 +1,15 @@
+# source#
+#########
+*.o
+*.bin
+*.exe
+*.so
+
+#Log message#
+#############
+*.log
+
+
+#Tag files
+##########
+tags
