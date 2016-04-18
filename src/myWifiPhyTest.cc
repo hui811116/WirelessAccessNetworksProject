@@ -225,13 +225,26 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
     lossMd = CreateObject<RandomPropagationLossModel> ();
   }
   else if(lMd=="Friis"){
-    lossMd = CreateObject<FriisPropagationLossModel> ();
+    Ptr<FriisPropagationLossModel> f_ptr = CreateObject<FriisPropagationLossModel> ();
+    f_ptr->SetFrequency(5.150e9);
+    f_ptr->SetSystemLoss(1);
+    f_ptr->SetMinLoss(0);
+    lossMd=f_ptr;
   }
   else if(lMd=="TwoRay"){
-    lossMd = CreateObject<TwoRayGroundPropagationLossModel> ();
+    Ptr<TwoRayGroundPropagationLossModel> t_ptr = CreateObject<TwoRayGroundPropagationLossModel> ();
+    t_ptr->SetFrequency(5.150e9);
+    t_ptr->SetSystemLoss(1);
+    t_ptr->SetMinDistance(0.5);
+    t_ptr->SetHeightAboveZ(0);
+    lossMd=t_ptr;
   }
   else if(lMd=="Log"){
-    lossMd = CreateObject<LogDistancePropagationLossModel> ();
+    
+    Ptr<LogDistancePropagationLossModel> l_ptr = CreateObject<LogDistancePropagationLossModel> ();
+    l_ptr->SetPathLossExponent(3.0);
+    l_ptr->SetReference(1.0,46.6777);
+    lossMd=l_ptr;
   }
   else if(lMd=="ThreeLog"){
     lossMd = CreateObject<ThreeLogDistancePropagationLossModel> ();
@@ -240,10 +253,14 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
     lossMd = CreateObject<NakagamiPropagationLossModel> ();
   }
   else if(lMd=="FixedRss"){
-    lossMd = CreateObject<FixedRssLossModel> ();
+    Ptr<FixedRssLossModel> rss_ptr= CreateObject<FixedRssLossModel> ();
+    rss_ptr->SetRss(150.0);
+    lossMd=rss_ptr;
   }
   else if(lMd=="Matrix"){
-    lossMd = CreateObject<MatrixPropagationLossModel> ();
+    Ptr<MatrixPropagationLossModel> mat_ptr= CreateObject<MatrixPropagationLossModel> ();
+    mat_ptr->SetLoss(posTx,posRx,100,true); 
+    lossMd=mat_ptr;
   }
   else if(lMd=="Range"){
     lossMd = CreateObject<RangePropagationLossModel> ();
