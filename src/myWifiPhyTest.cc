@@ -49,6 +49,7 @@ public:
   {
     Input ();
     double distance;
+
     std::string txMode;
     uint8_t txPowerLevel;
     uint32_t packetSize;
@@ -59,6 +60,13 @@ public:
     std::string errRateMd;
     std::string wifiStand;
     std::string wifiClass;
+    double freq;
+    double sysLoss;  //reuse loss
+    double minLoss;  //secondary loss
+    double minDis;
+    double heightAboveZ;
+    double pathLossExpo;
+    double rss;
   };
   struct Output
   {
@@ -107,7 +115,14 @@ PsrExperiment::Input::Input ()
     lossMd ("Log"),
     errRateMd ("Yans"),
     wifiStand ("80211a"),
-    wifiClass ("ofdm")
+    wifiClass ("ofdm"),
+    freq (5.150e9),
+    sysLoss (1.0),
+    minLoss (0.0),
+    minDis (0.5),
+    heightAboveZ (0),
+    pathLossExpo (3.0),
+    rss (-150.0)
 {
 }
 
@@ -152,7 +167,6 @@ PsrExperiment::Run (struct PsrExperiment::Input input)
   return m_output;
 }
 //***********************************************
-//            modified
 //*******@NTU
 
 struct PsrExperiment::Output
@@ -167,9 +181,7 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
   posRx->SetPosition (Vector (m_input.distance, 0.0, 0.0));
 
   Ptr<YansWifiChannel> channel = CreateObject<YansWifiChannel> ();
-  //**** should change the propagation delay model
   channel->SetPropagationDelayModel (CreateObject<ConstantSpeedPropagationDelayModel> ());
-  //**** should change the propagation loss model
   /**
   common functions:
   SetNext(Ptr<PropagationLossModel> next);
@@ -226,24 +238,24 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
   }
   else if(lMd=="Friis"){
     Ptr<FriisPropagationLossModel> f_ptr = CreateObject<FriisPropagationLossModel> ();
-    f_ptr->SetFrequency(5.150e9);
-    f_ptr->SetSystemLoss(1);
-    f_ptr->SetMinLoss(0);
+    f_ptr->SetFrequency(m_input.freq);
+    f_ptr->SetSystemLoss(m_input.sysLoss);
+    f_ptr->SetMinLoss(m_input.minLoss);
     lossMd=f_ptr;
   }
   else if(lMd=="TwoRay"){
     Ptr<TwoRayGroundPropagationLossModel> t_ptr = CreateObject<TwoRayGroundPropagationLossModel> ();
-    t_ptr->SetFrequency(5.150e9);
-    t_ptr->SetSystemLoss(1);
-    t_ptr->SetMinDistance(0.5);
-    t_ptr->SetHeightAboveZ(0);
+    t_ptr->SetFrequency(m_input.freq);
+    t_ptr->SetSystemLoss(m_input.sysLoss);
+    t_ptr->SetMinDistance(m_input.minDis);
+    t_ptr->SetHeightAboveZ(m_input.heightAboveZ);
     lossMd=t_ptr;
   }
   else if(lMd=="Log"){
     
     Ptr<LogDistancePropagationLossModel> l_ptr = CreateObject<LogDistancePropagationLossModel> ();
-    l_ptr->SetPathLossExponent(3.0);
-    l_ptr->SetReference(1.0,46.6777);
+    l_ptr->SetPathLossExponent(m_input.pathLossExpo);
+    l_ptr->SetReference(m_input.minDis,m_input.sysLoss);
     lossMd=l_ptr;
   }
   else if(lMd=="ThreeLog"){
@@ -254,12 +266,12 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
   }
   else if(lMd=="FixedRss"){
     Ptr<FixedRssLossModel> rss_ptr= CreateObject<FixedRssLossModel> ();
-    rss_ptr->SetRss(150.0);
+    rss_ptr->SetRss(m_input.rss);
     lossMd=rss_ptr;
   }
   else if(lMd=="Matrix"){
     Ptr<MatrixPropagationLossModel> mat_ptr= CreateObject<MatrixPropagationLossModel> ();
-    mat_ptr->SetLoss(posTx,posRx,100,true); 
+    mat_ptr->SetLoss(posTx,posRx,m_input.sysLoss,true); 
     lossMd=mat_ptr;
   }
   else if(lMd=="Range"){
@@ -267,18 +279,11 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
   }
   else{
     lossMd = CreateObject<LogDistancePropagationLossModel> ();
-    /*
-  std::cout << "apply default loss model: Log" << std::endl;
-  std::cout << "Options: 1.Random 2.Friis 3.TwoRay 4.Log 5.ThreeLog" << std::endl;
-  std::cout << "6.Nakagami 7.FixedRss 8.Matrix 9.Range" <<std::endl;
-  */
   }
   channel->SetPropagationLossModel (lossMd);
 
   Ptr<YansWifiPhy> tx = CreateObject<YansWifiPhy> ();
   Ptr<YansWifiPhy> rx = CreateObject<YansWifiPhy> ();
-
-  //**** should change the error rate model
   
   //Models to be used:
   /*
@@ -296,10 +301,6 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
   }
   else{
       error = CreateObject<YansErrorRateModel> ();
-      /*
-      std::cout << "apply default error rate model: Yans" << std::endl;
-      std::cout << "Options: 1.Yans 2.Nist" << std::endl;
-      */
   }
   tx->SetErrorRateModel (error);
   rx->SetErrorRateModel (error);
@@ -365,10 +366,7 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
       u1=WIFI_PHY_STANDARD_80211a;
   }
 
-  //**** should change the WIFI mode
   tx->ConfigureStandard (u1);
-
-  //**** should change the WIFI mode
   rx->ConfigureStandard (u1);
 
   rx->SetReceiveOkCallback (MakeCallback (&PsrExperiment::Receive, this));
@@ -612,10 +610,6 @@ CollisionExperiment::myRun (struct CollisionExperiment::Input input)
   }
   else{
       error = CreateObject<YansErrorRateModel> ();
-      /*
-      std::cout << "apply default error rate model: Yans" << std::endl;
-      std::cout << "Options: 1.Yans 2.Nist" << std::endl;
-      */
   }
   txA->SetErrorRateModel (error);
   txB->SetErrorRateModel (error);
@@ -857,6 +851,16 @@ static void PrintMyTest (int argc, char * argv[])
   cmd.AddValue ("PacketSize", "The size of each packet sent", input.packetSize);
   cmd.AddValue ("WifiStand","The wifi standard for users",input.wifiStand);
   cmd.AddValue ("WifiClass","The wifi modes in the experiment",input.wifiClass);
+  cmd.AddValue ("Frequency","The frequency for loss model",input.freq);
+  cmd.AddValue ("SystemLoss","The system loss for loss model [Friis, TwoRay]",input.sysLoss);
+  cmd.AddValue ("MinLoss","The minimum loss for loss model [Friis]",input.minLoss);
+  cmd.AddValue ("MinDistance","The minimum distance for loss model [TwoRay]",input.minDis);
+  cmd.AddValue ("HeightAboveZ","The parameter for loss model [TwoRay]",input.heightAboveZ);
+  cmd.AddValue ("PathLossExponent","The path loss exponent for loss model [Log]",input.pathLossExpo);
+  cmd.AddValue ("ReferenceDistance","The reference distance for loss model [Log]",input.minDis);
+  cmd.AddValue ("ReferenceLoss","The reference loss for loss model [Log]",input.sysLoss);
+  cmd.AddValue ("Rss","The parameter for loss model [FixedRss]",input.rss);
+  cmd.AddValue ("DefaultLoss","default loss value for loss model [Matrix]",input.sysLoss);
   cmd.Parse (argc, argv);
 
   std::vector<std::string> ofdmModes, ofdm10BwModes, ofdm5BwModes, dsssModes, erpOfdmModes, htMcsModes, vhtMcsModes;
