@@ -67,6 +67,7 @@ public:
     double heightAboveZ;
     double pathLossExpo;
     double rss;
+	double txAntGain;
   };
   struct Output
   {
@@ -122,7 +123,8 @@ PsrExperiment::Input::Input ()
     minDis (0.5),
     heightAboveZ (0),
     pathLossExpo (3.0),
-    rss (-150.0)
+    rss (-150.0),
+	txAntGain(6.0)
 {
 }
 
@@ -309,6 +311,8 @@ PsrExperiment::myRun (struct PsrExperiment::Input input)
   rx->SetChannel (channel);
   tx->SetMobility (posTx);
   rx->SetMobility (posRx);
+
+  tx->SetTxGain(m_input.txAntGain);
 
   /** enum {0-8}
    OFDM PHY for the 5 GHz band (Clause 17) 
@@ -861,6 +865,7 @@ static void PrintMyTest (int argc, char * argv[])
   cmd.AddValue ("ReferenceLoss","The reference loss for loss model [Log]",input.sysLoss);
   cmd.AddValue ("Rss","The parameter for loss model [FixedRss]",input.rss);
   cmd.AddValue ("DefaultLoss","default loss value for loss model [Matrix]",input.sysLoss);
+  cmd.AddValue ("TxAntennaGain","Set the Tx antenna gain",input.txAntGain);
   cmd.Parse (argc, argv);
 
   std::vector<std::string> ofdmModes, ofdm10BwModes, ofdm5BwModes, dsssModes, erpOfdmModes, htMcsModes, vhtMcsModes;
@@ -943,7 +948,7 @@ static void PrintMyTest (int argc, char * argv[])
     wifiClassPtr = &ofdmModes;
   }
   std::cout << "Distance/ Psr for mode " << m_wifiClass << std::endl;
-  for (input.distance = 1.0; input.distance < 165; input.distance += 2.0)
+  for (input.distance = 100.0; input.distance < 3000; input.distance += 50.0)
     {
       std::cout << input.distance;
       PsrExperiment experiment;

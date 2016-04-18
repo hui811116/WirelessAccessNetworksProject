@@ -11,9 +11,11 @@ experiment=myTest
 
 TxPowerLevel=0.0
 NPackets=400
-PacketSize=2304
+PacketSize=1000
+TxAntennaGain=6.0
+
 WifiStand=80211a
-WifiClass=Ofdm
+WifiClass=Ofdm         #Dsss ErpOfdm Ofdm Ofdm_Bw10 Ofdm_Bw5 HtMcs VhtMcs
 
 # parameters for loss model
 Frequency=5.150e9        # Friis, TwoRay 
@@ -78,7 +80,7 @@ case $1 in
 esac
 
 $WAF_EXE --run "myWifiPhyTest $experiment \
-      --TxPowerLevel=$TxPowerLevel --NPackets=$NPackets \
+      --TxPowerLevel=$TxPowerLevel --NPackets=$NPackets --TxAntennaGain=$TxAntennaGain\
       --PacketSize=$PacketSize --WifiClass=$WifiClass --WifiStand=$WifiStand \
       --ErrRateMd=$ErrRateMd \
       --LossMd=$lossMd $Arg_Loss"
