@@ -4,7 +4,7 @@
 # Author: Teng-Hui Huang                                  #
 # Required file: myWifiPhyTest.cc                         #
 ###########################################################
-# USAGE: user@term:~$ sh psrVsDistance [loss model]       
+# USAGE: user@term:~$ sh psrVsDistance [loss model] [error rate model]      
 ###########################################################
 WAF_EXE=./waf
 experiment=myTest
@@ -16,6 +16,11 @@ TxAntennaGain=6.0
 
 WifiStand=80211a
 WifiClass=Ofdm         #Dsss ErpOfdm Ofdm Ofdm_Bw10 Ofdm_Bw5 HtMcs VhtMcs
+
+# distance setup for psr vs distance experiment
+IterMin=10.0
+IterMax=165.0
+IterStep=10.0
 
 # parameters for loss model
 Frequency=5.150e9        # Friis, TwoRay 
@@ -35,7 +40,7 @@ DefaultLoss=100000000    # Matrix
 lossMd=$1
 Arg_Loss=
 #container for error rate model (in development)
-ErrRateMd=Yans
+ErrRateMd=$2
 
 
 case $1 in
@@ -75,12 +80,26 @@ case $1 in
   ;;
   *)
       lossMd=Log
-      echo "please specify correct loss model"
+      echo "please specify correct loss model [Random, Log, TwoRay, ThreeLog, Matrix, FixedRss, Nakagami, Range, Friis]"
   ;;
+esac
+
+case $2 in
+  "Yans")
+        echo "Error rate model = Yans"
+        ;;
+  "Nist")
+        echo "Error rate model = Nist"
+        ;;
+  *)
+        ErrRateMd="Yans"
+        echo "please specify correct error rate model [Yans, Nist]"
+        ;;
 esac
 
 $WAF_EXE --run "myWifiPhyTest $experiment \
       --TxPowerLevel=$TxPowerLevel --NPackets=$NPackets --TxAntennaGain=$TxAntennaGain\
       --PacketSize=$PacketSize --WifiClass=$WifiClass --WifiStand=$WifiStand \
+      --IteratorMinDistance=$IterMin  --IteratorMaxDistance=$IterMax --IteratorDistanceStep=$IterStep \
       --ErrRateMd=$ErrRateMd \
       --LossMd=$lossMd $Arg_Loss"

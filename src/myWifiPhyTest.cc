@@ -67,7 +67,7 @@ public:
     double heightAboveZ;
     double pathLossExpo;
     double rss;
-	double txAntGain;
+    double txAntGain;
   };
   struct Output
   {
@@ -124,7 +124,7 @@ PsrExperiment::Input::Input ()
     heightAboveZ (0),
     pathLossExpo (3.0),
     rss (-150.0),
-	txAntGain(6.0)
+    txAntGain(6.0)
 {
 }
 
@@ -845,6 +845,7 @@ void myUsage(){
 
 static void PrintMyTest (int argc, char * argv[])
 {
+  double iter_minDis,iter_maxDis,iter_diff;
   PsrExperiment::Input input;
   CommandLine cmd;
   cmd.AddValue ("LossMd", "The propagation loss model in the experiment",input.lossMd);
@@ -866,6 +867,9 @@ static void PrintMyTest (int argc, char * argv[])
   cmd.AddValue ("Rss","The parameter for loss model [FixedRss]",input.rss);
   cmd.AddValue ("DefaultLoss","default loss value for loss model [Matrix]",input.sysLoss);
   cmd.AddValue ("TxAntennaGain","Set the Tx antenna gain",input.txAntGain);
+  cmd.AddValue ("IteratorMinDistance","Start distance of the psr vs distance", iter_minDis);
+  cmd.AddValue ("IteratorMaxDistance","End distance of the psr vs distance",iter_maxDis);
+  cmd.AddValue ("IteratorDistanceStep","Step of the psr vs distance",iter_diff);
   cmd.Parse (argc, argv);
 
   std::vector<std::string> ofdmModes, ofdm10BwModes, ofdm5BwModes, dsssModes, erpOfdmModes, htMcsModes, vhtMcsModes;
@@ -948,7 +952,7 @@ static void PrintMyTest (int argc, char * argv[])
     wifiClassPtr = &ofdmModes;
   }
   std::cout << "Distance/ Psr for mode " << m_wifiClass << std::endl;
-  for (input.distance = 100.0; input.distance < 3000; input.distance += 50.0)
+  for (input.distance = iter_minDis; input.distance < iter_maxDis; input.distance += iter_diff)
     {
       std::cout << input.distance;
       PsrExperiment experiment;
