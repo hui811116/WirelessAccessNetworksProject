@@ -261,6 +261,7 @@ int main (int argc, char *argv[])
       std::cout << "  Rx Packets: " << i->second.rxPackets << "\n";
       std::cout << "  Rx Bytes:   " << i->second.rxBytes << "\n";
       std::cout << "  Throughput: " << i->second.rxBytes * 8.0 / 9.0 / 1000 / 1000  << " Mbps\n";
+      std::cout << "  Delay:      " << i->second.delaySum.GetMilliSeconds() / i->second.rxPackets << " \n";
     }
 
   Simulator::Destroy ();
