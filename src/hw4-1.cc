@@ -32,6 +32,10 @@
 
 #include <iostream>
 
+/*
+ * example command
+ * ./waf --run "hw4-1 --nStas=3 --pacektSize=1023 --Radius=10.0 --Duration=11.0"
+ */
 
 using namespace ns3;
 
@@ -46,7 +50,7 @@ int main (int argc, char *argv[])
   CommandLine cmd;
   cmd.AddValue ("packetSize", "PacketSize in bytes", packetSize);
   cmd.AddValue ("nStas", "Number of Wifi stations", nStas);
-  cmd.AddValue ("radius", "The Radius of Uniform Distributed STA Positions", nStas);
+  cmd.AddValue ("Radius", "The Radius of Uniform Distributed STA Positions", radius);
   cmd.AddValue ("Duration", "Simulation Duration in Seconds", simDur); 
   
   cmd.Parse (argc, argv);
@@ -130,6 +134,8 @@ int main (int argc, char *argv[])
   ApplicationContainer apps_sink = sink.Install (ap);
   
   OnOffHelper onoff ("ns3::UdpSocketFactory", InetSocketAddress (apInterface.GetAddress(0), port));
+  onoff.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
+  onoff.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
   onoff.SetConstantRate (DataRate ("54Mb/s"), packetSize);
   onoff.SetAttribute ("StartTime", TimeValue (Seconds (1.0)));
   onoff.SetAttribute ("StopTime", TimeValue (Seconds (1.0+simDur)));
