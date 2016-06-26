@@ -34,95 +34,21 @@
 
 
 using namespace ns3;
-/*
-static bool g_verbose = true;
 
-void
-DevTxTrace (std::string context, Ptr<const Packet> p)
-{
-  if (g_verbose)
-    {
-      std::cout << " TX p: " << *p << std::endl;
-    }
-}
-void
-DevRxTrace (std::string context, Ptr<const Packet> p)
-{
-  if (g_verbose)
-    {
-      std::cout << " RX p: " << *p << std::endl;
-    }
-}
-void
-PhyRxOkTrace (std::string context, Ptr<const Packet> packet, double snr, WifiMode mode, enum WifiPreamble preamble)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYRXOK mode=" << mode << " snr=" << snr << " " << *packet << std::endl;
-    }
-}
-void
-PhyRxErrorTrace (std::string context, Ptr<const Packet> packet, double snr)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYRXERROR snr=" << snr << " " << *packet << std::endl;
-    }
-}
-void
-PhyTxTrace (std::string context, Ptr<const Packet> packet, WifiMode mode, WifiPreamble preamble, uint8_t txPower)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYTX mode=" << mode << " " << *packet << std::endl;
-    }
-}
-void
-PhyStateTrace (std::string context, Time start, Time duration, enum WifiPhy::State state)
-{
-  if (g_verbose)
-    {
-      std::cout << " state=" << state << " start=" << start << " duration=" << duration << std::endl;
-    }
-}
-
-static void
-SetPosition (Ptr<Node> node, Vector position)
-{
-  Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
-  mobility->SetPosition (position);
-}
-
-static Vector
-GetPosition (Ptr<Node> node)
-{
-  Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
-  return mobility->GetPosition ();
-}
-
-static void 
-AdvancePosition (Ptr<Node> node) 
-{
-  Vector pos = GetPosition (node);
-  pos.x += 5.0;
-  if (pos.x >= 210.0) 
-    {
-      return;
-    }
-  SetPosition (node, pos);
-
-  if (g_verbose)
-    {
-      //std::cout << "x="<<pos.x << std::endl;
-    }
-  Simulator::Schedule (Seconds (1.0), &AdvancePosition, node);
-}
-*/
 int main (int argc, char *argv[])
 {
+  RngSeedManager::SetSeed(3);
+  RngSeedManager::SetRun(7);
+  uint32_t packetSize = 1023;
+  uint32_t nStas = 2;
+  double radius = 5.0;
+  double simDur = 9.0;
   CommandLine cmd;
-  //cmd.AddValue ("verbose", "Print trace information if true", g_verbose);
-
+  cmd.AddValue ("packetSize", "PacketSize in bytes", packetSize);
+  cmd.AddValue ("nStas", "Number of Wifi stations", nStas);
+  cmd.AddValue ("radius", "The Radius of Uniform Distributed STA Positions", nStas);
+  cmd.AddValue ("Duration", "Simulation Duration in Seconds", simDur); 
+  
   cmd.Parse (argc, argv);
 
   Packet::EnablePrinting ();
@@ -137,21 +63,21 @@ int main (int argc, char *argv[])
   NodeContainer stas;
   NodeContainer ap;
   NetDeviceContainer staDevs;
-//  PacketSocketHelper packetSocket;
 
-  stas.Create (2);
+  stas.Create (nStas);
   ap.Create (1);
-
-  // give packet socket powers to nodes.
-//  packetSocket.Install (stas);
-//  packetSocket.Install (ap);
 
   WifiMacHelper wifiMac;
   YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
   wifiPhy.SetChannel (wifiChannel.Create ());
   Ssid ssid = Ssid ("wifi-default");
-  wifi.SetRemoteStationManager ("ns3::ArfWifiManager");
+
+  wifi.SetStandard (WIFI_PHY_STANDARD_80211b);
+  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
+                                "DataMode", StringValue ("DsssRate11Mbps"),
+                                "ControlMode", StringValue ("DsssRate2Mbps"));
+  //wifi.SetRemoteStationManager ("ns3::ArfWifiManager");
   // setup stas.
   wifiMac.SetType ("ns3::StaWifiMac",
                    "Ssid", SsidValue (ssid),
@@ -176,14 +102,16 @@ int main (int argc, char *argv[])
   mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
                              "Bounds", RectangleValue (Rectangle (-50, 50, -50, 50)));
   */
-  //mobility.Install (stas);
   Ptr<ListPositionAllocator> posPtr = CreateObject<ListPositionAllocator> ();
   posPtr->Add (Vector ( 0.0, 0.0, 0.0));
-  posPtr->Add (Vector ( 5.0, 0.0, 0.0));
-  posPtr->Add (Vector ( 0.0, 5.0, 0.0));
   mobility.SetPositionAllocator (posPtr);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (ap);
+  Ptr<UniformDiscPositionAllocator> staPos = CreateObject<UniformDiscPositionAllocator> ();
+  staPos->SetRho (radius);
+  staPos->SetX (0.0);
+  staPos->SetY (0.0);
+  mobility.SetPositionAllocator (staPos);
   mobility.Install (stas);
 
   InternetStackHelper internet;
@@ -193,11 +121,26 @@ int main (int argc, char *argv[])
   Ipv4AddressHelper ipv4;
   ipv4.SetBase ("192.168.0.0", "255.255.255.0");
   Ipv4InterfaceContainer apInterface = ipv4.Assign (apDev);
-  //ipv4.Assign (apDev);
 
-  //ipv4.SetBase ("10.0.1.0", "255.255.255.0");
   Ipv4InterfaceContainer staInterface = ipv4.Assign (staDevs);
 
+//ONOFF APP
+  uint32_t port=9;
+  PacketSinkHelper sink ("ns3::UdpSocketFactory", InetSocketAddress (apInterface.GetAddress(0), port));
+  ApplicationContainer apps_sink = sink.Install (ap);
+  
+  OnOffHelper onoff ("ns3::UdpSocketFactory", InetSocketAddress (apInterface.GetAddress(0), port));
+  onoff.SetConstantRate (DataRate ("54Mb/s"), packetSize);
+  onoff.SetAttribute ("StartTime", TimeValue (Seconds (1.0)));
+  onoff.SetAttribute ("StopTime", TimeValue (Seconds (1.0+simDur)));
+  ApplicationContainer app_source = onoff.Install (stas);
+  
+  apps_sink.Start (Seconds (1.0));
+  apps_sink.Stop (Seconds (1.0+simDur));
+
+
+//UDP SERVER CLIENT APP
+/*
   UdpServerHelper server(9);
 
   ApplicationContainer serverApps = server.Install (ap);
@@ -212,42 +155,29 @@ int main (int argc, char *argv[])
   ApplicationContainer clientApps = client.Install (stas);
   clientApps.Start (Seconds (2.0));
   clientApps.Stop (Seconds (10.0));
+*/
 
-  //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
-
-  //Simulator::Schedule (Seconds (1.0), &AdvancePosition, ap.Get (0));
-  /*
-  PacketSocketAddress socket;
-  socket.SetSingleDevice (staDevs.Get (0)->GetIfIndex ());
-  socket.SetPhysicalAddress (staDevs.Get (1)->GetAddress ());
-  socket.SetProtocol (1);
-  */
-  /*
-  OnOffHelper onoff ("ns3::PacketSocketFactory", Address (socket));
-  onoff.SetConstantRate (DataRate ("500kb/s"));
-
-  ApplicationContainer apps = onoff.Install (stas.Get (0));
-  apps.Start (Seconds (0.5));
-  apps.Stop (Seconds (43.0));
-  */
   FlowMonitorHelper flowmon;
   Ptr<FlowMonitor> monitor = flowmon.InstallAll ();
   
-  Simulator::Stop (Seconds (10.0));
+  Simulator::Stop (Seconds (1.0+simDur));
 
-  //Config::Connect ("/NodeList/*/DeviceList/*/Mac/MacTx", MakeCallback (&DevTxTrace));
-  //Config::Connect ("/NodeList/*/DeviceList/*/Mac/MacRx", MakeCallback (&DevRxTrace));
-  //Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/RxOk", MakeCallback (&PhyRxOkTrace));
-  //Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/RxError", MakeCallback (&PhyRxErrorTrace));
-  //Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/Tx", MakeCallback (&PhyTxTrace));
-  //Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/State", MakeCallback (&PhyStateTrace));
-  /*
-  AthstatsHelper athstats;
-  athstats.EnableAthstats ("athstats-sta", stas);
-  athstats.EnableAthstats ("athstats-ap", ap);
-  */
   Simulator::Run ();
-  
+
+
+  // print position example
+  std::cout << "Results\n";
+  std::cout << "----------------------------------------------------------\n";
+  Ptr<Node> bpt = ap.Get(0);
+  Ptr<MobilityModel> mb = bpt->GetObject<MobilityModel> ();
+  std::cout << "  AP   position: " << mb->GetPosition () << "\n";
+  for(uint32_t i = 0; i < nStas; ++i)
+    {
+      bpt = stas.Get(i);
+      mb = bpt->GetObject<MobilityModel> ();
+      std::cout << "  sta" << i << " position: " << mb->GetPosition () << "\n";
+    }
+  std::cout << "----------------------------------------------------------\n";
   monitor->CheckForLostPackets ();
   Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowmon.GetClassifier ());
   FlowMonitor::FlowStatsContainer stats = monitor->GetFlowStats ();
@@ -257,18 +187,13 @@ int main (int argc, char *argv[])
       std::cout << "Flow " << i->first << " (" << t.sourceAddress << " ->" << t.destinationAddress << ")\n";
       std::cout << "  Tx Packets: " << i->second.txPackets << "\n";
       std::cout << "  Tx Bytes:   " << i->second.txBytes << "\n";
-      std::cout << "  TxOffered:  " << i->second.txBytes * 8.0 / 9.0 / 1000 / 1000  << " Mbps\n";
+      std::cout << "  TxOffered:  " << i->second.txBytes * 8.0 / simDur / 1000 / 1000  << " Mbps\n";
       std::cout << "  Rx Packets: " << i->second.rxPackets << "\n";
       std::cout << "  Rx Bytes:   " << i->second.rxBytes << "\n";
-      std::cout << "  Throughput: " << i->second.rxBytes * 8.0 / 9.0 / 1000 / 1000  << " Mbps\n";
-      std::cout << "  Delay:      " << i->second.delaySum.GetMilliSeconds() / i->second.rxPackets << " \n";
+      std::cout << "  Throughput: " << i->second.rxBytes * 8.0 / simDur / 1000 / 1000  << " Mbps\n";
+      std::cout << "  Delay:      " << i->second.delaySum.GetMilliSeconds() / i->second.rxPackets << " ms\n";
     }
 
   Simulator::Destroy ();
-/*
-  uint32_t totalPacketsThrough = DynamicCast<UdpServer> (serverApps.Get(0))->GetReceived ();
-  double throughput = totalPacketsThrough * 1024 * 8 / (8.0);
-  std::cout << "Throughput: " << throughput << " Mbit/s" << '\n';
-*/
   return 0;
 }
